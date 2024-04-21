@@ -1,0 +1,11 @@
+torch
+torchvision
+pillow
+opencv-python
+numpy
+matplotlib
+flask
+os
+pymongo
+imagehash
+time
