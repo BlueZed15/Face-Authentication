@@ -9,23 +9,20 @@ app=Flask(__name__)
 
 @app.route("/capture/<user_name>",methods={'GET'})
 def capture(user_name):
-    face_auth.set_variables(r"C:\Users\Rohith\Downloads",user_name)
+    face_auth.set_variables(r"\\",user_name)
     face_auth.cap()
     return jsonify({'message':'capture successful'}),200
 
-@app.route("/capture/<user_name>/dbstore",methods={'GET'})
-def data_store(user_name):
-    dbstore.set_variables(r"C:\Users\Rohith\Downloads", user_name)
-    dbstore.database_storage()
-    dbstore.model_storage()
-    return jsonify({'message':'data and model stored in mongodb'})
 
 
 @app.route("/train_face_model/<user_name>",methods={'GET'})
 def train(user_name):
-    train_user.set_variables(r"C:\Users\Rohith\Downloads", user_name)
+    train_user.set_variables(r"\\", user_name)
     train_user.train_face_model()
-    return jsonify({'message':'model training successful for'+user_name}),200
+    dbstore.set_variables(r"\\", user_name)
+    dbstore.database_storage()
+    dbstore.model_storage()
+    return jsonify({'message_1':'model training successful for'+user_name,'message_2': 'data and model stored in mongodb'}),200
 
 
 @app.route("/authenticate/<user_name>",methods={'GET'})
@@ -43,7 +40,7 @@ def classify_face(user_name):
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
-    path=r"C:\Users\Rohith\Downloads"
+    path=r"\\"
     best_model_params_path=os.path.join(path+'\\data\\'+user_name,user_name+"_best_model_params.pt")
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -80,10 +77,11 @@ def classify_face(user_name):
     with torch.no_grad():
         output = model(im)
 
-    print(output)
+    print(output,torch.sigmoid(output))
     #_,preds= torch.max(output,1)
     #probabilities = torch.nn.functional.softmax(output[0], dim=0)
     op = user_name if output[0] > 0.55 else None
+    print(output,op)
     if op==user_name:
         return jsonify({'message':'true'}),200
     else:
