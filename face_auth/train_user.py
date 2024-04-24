@@ -8,7 +8,6 @@ import time
 from tempfile import TemporaryDirectory
 
 
-
 def set_variables(a, b):
     global path, user_name
     path, user_name = a, b
@@ -29,34 +28,38 @@ def train_face_model():
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
+
     train_dat = ImageFolder(os.path.join(path+'\\data',user_name + '\\train'), transform=transformer)
     test_dat = ImageFolder(os.path.join(path+'\\data', user_name + '\\test'), transform=transformer_classify)
     data_len = [len(train_dat), len(test_dat)]
-    train_dat = DataLoader(train_dat, batch_size=4, shuffle=True)
-    test_dat = DataLoader(test_dat, batch_size=4, shuffle=True)
+    train_dat = DataLoader(train_dat, batch_size=10, shuffle=True)
+    test_dat = DataLoader(test_dat, batch_size=5, shuffle=True)
     data_load = [train_dat, test_dat]
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model2 = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=False)
+    model2 = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', weights=None)
     num_ftrs = model2.fc.in_features
-    model2.fc = torch.nn.Linear(num_ftrs, 1)
+    model2.fc = torch.nn.Linear(num_ftrs,1)
     model2 = model2.to(device)
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = torch.nn.BCELoss()
     optimizer_ft = torch.optim.SGD(model2.parameters(), lr=0.001, momentum=0.9)
     exp_lr_scheduler = lr_scheduler.StepLR(optimizer_ft, step_size=7, gamma=0.1)
 
     train_model(path,user_name,device,model2,criterion,
                            optimizer_ft,exp_lr_scheduler,
-                           data_len,data_load,num_epochs=25)
+                           data_len,data_load,num_epochs=25 )
 
     return 'success'
 
-def train_model(path,user,device,model,criterion,optimizer,scheduler,data_len,data_load,num_epochs=25):
+def train_model(path,user,device,model,criterion,optimizer,scheduler,data_len,data_load,num_epochs=1):
     since = time.time()
+    if not os.path.exists(os.path.join(path+'\\data','models')):
+        os.mkdir(os.path.join(path+'\\data', 'models'))
 
     with TemporaryDirectory() as tempdir:
-        best_model_params_path =os.path.join(path+'\\data\\'+user,user+"_best_model_params.pt")
+
+        best_model_params_path =os.path.join(path+'\\data\\models',user+"_best_model_params.pt")
         torch.save(model.state_dict(), best_model_params_path)
         best_acc = 0.0
 
@@ -77,25 +80,27 @@ def train_model(path,user,device,model,criterion,optimizer,scheduler,data_len,da
                     labels = labels.to(device)
                     optimizer.zero_grad()
 
-                    with torch.set_grad_enabled(phase==0):
+                    with torch.set_grad_enabled(phase == 0):
                         outputs = model(inputs)
                         _, preds = torch.max(outputs, 1)
-                        loss = criterion(outputs, labels)
+                        p=torch.nn.Sigmoid()
+                        labels=labels.unsqueeze(1).float()
+                        loss = criterion(p(outputs), labels)
 
-                        if phase ==0:
+                        if phase == 0:
                             loss.backward()
                             optimizer.step()
 
                     running_loss += loss.item() * inputs.size(0)
                     running_corrects += torch.sum(preds == labels.data)
-                if phase ==0:
+                if phase == 0:
                     scheduler.step()
 
                 epoch_loss = running_loss / data_len[phase]
                 epoch_acc = running_corrects.double() / data_len[phase]
-                kind='Train' if phase==0 else 'Test'
+                kind = 'Train' if phase == 0 else 'Test'
                 print(f'{kind} Loss: {epoch_loss:.4f} Acc: {epoch_acc:.4f}')
-                if phase ==1 and epoch_acc > best_acc:
+                if phase == 1 and epoch_acc > best_acc:
                     best_acc = epoch_acc
                     torch.save(model.state_dict(), best_model_params_path)
             #print('end of 2nd loop')

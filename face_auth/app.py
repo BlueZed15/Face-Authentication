@@ -14,7 +14,6 @@ def capture(user_name):
     return jsonify({'message':'capture successful'}),200
 
 
-
 @app.route("/train_face_model/<user_name>",methods={'GET'})
 def train(user_name):
     train_user.set_variables(r"\\", user_name)
@@ -22,7 +21,8 @@ def train(user_name):
     dbstore.set_variables(r"\\", user_name)
     dbstore.database_storage()
     dbstore.model_storage()
-    return jsonify({'message_1':'model training successful for'+user_name,'message_2': 'data and model stored in mongodb'}),200
+    return jsonify({'message_1':'model training successful for '+user_name,
+                    'message_2':'data and model stored in mongodb'}),200
 
 
 @app.route("/authenticate/<user_name>",methods={'GET'})
@@ -41,14 +41,11 @@ def classify_face(user_name):
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     path=r"\\"
-    best_model_params_path=os.path.join(path+'\\data\\'+user_name,user_name+"_best_model_params.pt")
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model= torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', weights=None)
-    num_ftrs =model.fc.in_features
-    model.fc = torch.nn.Linear(num_ftrs, 1)
+    model.fc = torch.nn.Linear(model.fc.in_features, 1)
     model=model.to(device)
-    model.load_state_dict(torch.load(best_model_params_path))
 
     vid = cv.VideoCapture(0)
     winame = 'Face Authentication'
@@ -71,21 +68,24 @@ def classify_face(user_name):
     vid.release()
     cv.destroyAllWindows()
 
-    model.eval()
-    im = transformer_classify(ima).unsqueeze(0)
-    print(im.size())
-    with torch.no_grad():
-        output = model(im)
+    elem=os.listdir(path+'\\data\\models')
+    cnt=0
+    for i in elem:
+        uname=i.split('_')[0]
+        best_model_params_path = os.path.join(path+'\\data\\models',i)
+        model.load_state_dict(torch.load(best_model_params_path))
+        model.eval()
+        im = transformer_classify(ima).unsqueeze(0)
+        with torch.no_grad():
+            output = model(im)
+            probabilities = torch.nn.functional.sigmoid(output[0])
+        op = 'true' if probabilities[0] > 0.70 else 'false'
+        cnt+=1
+        if op=='true':
+            return jsonify({'user_name':uname,'message':'authenticated'}),200
+        if cnt==len(elem):
+            return jsonify({'message':'not authenticated'})
 
-    print(output,torch.sigmoid(output))
-    #_,preds= torch.max(output,1)
-    #probabilities = torch.nn.functional.softmax(output[0], dim=0)
-    op = user_name if output[0] > 0.55 else None
-    print(output,op)
-    if op==user_name:
-        return jsonify({'message':'true'}),200
-    else:
-        return jsonify({'message':'false'}),200
 
 if __name__=='__main__':
     app.run(debug=True)

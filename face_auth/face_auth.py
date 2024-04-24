@@ -3,6 +3,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2 as cv
 import time
+import requests
+from PIL import Image
+from io import BytesIO
 
 check = False
 def patimg(event, x, y, flags, param):
@@ -30,8 +33,8 @@ def cap():
     vid = cv.VideoCapture(0)
     winame = 'Face Detector'
 
-    if not os.path.exists(os.path.join(path, 'data')):
-        os.mkdir(os.path.join(path, 'data'))
+    if not os.path.exists(os.path.join(path,'data')):
+        os.mkdir(os.path.join(path,'data'))
     if not os.path.exists(os.path.join(path, 'data\\' + user_name)):
         os.mkdir(os.path.join(path, 'data\\'+user_name))
     save_path = os.path.join(path, 'data')
@@ -64,15 +67,25 @@ def cap():
     train_path = os.path.join(save_path, user_name + '\\train\\')
     test_path = os.path.join(save_path, user_name + '\\test\\')
 
+    if not os.path.exists(train_path+'not_'+user_name):
+        os.mkdir(train_path+'not_'+user_name)
     if not os.path.exists(os.path.join(save_path, user_name+'\\test')):
         os.mkdir(os.path.join(save_path,user_name+'\\test'))
-    if not os.path.exists(test_path+'\\'+user_name):
-        os.mkdir(test_path+'\\'+user_name)
-    im_elem = os.listdir(train_path+'\\'+user_name)
-    b=np.random.default_rng().choice(range(len(im_elem)), size=round(len(im_elem) * 0.2), replace=False)
-    for i in b:
-        print(os.path.join(train_path + user_name, str(i) + '.png'))
+    if not os.path.exists(test_path+'not_'+user_name):
+        os.mkdir(test_path+'not_'+user_name)
+    if not os.path.exists(test_path+user_name):
+        os.mkdir(test_path+user_name)
+
+    base_url = "https://picsum.photos/200/200/?random"
+    im_elem = os.listdir(train_path + user_name)
+    for i in range(len(im_elem)):
+        response = requests.get(base_url)
+        image = Image.open(BytesIO(response.content))
+        image.save(os.path.join(train_path+'not_'+user_name, str(i) + '.png'))
+
+    for i in np.random.default_rng().choice(range(len(im_elem)), size=round(len(im_elem) * 0.2), replace=False):
         os.rename(os.path.join(train_path+user_name,str(i) + '.png'),
                   os.path.join(test_path+user_name, str(i) + '.png'))
-
+        os.rename(os.path.join(train_path+'not_'+user_name, str(i)+'.png'),
+                  os.path.join(test_path+'not_'+user_name, str(i)+'.png'))
 

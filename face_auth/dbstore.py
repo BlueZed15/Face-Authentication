@@ -31,7 +31,7 @@ def model_storage(port_number=27017):
     client = MongoClient(port=port_number)
     db = client.image_data
     col = db['models']
-    a =np.array(torch.load(os.path.join(path+'\\data\\'+user_name,user_name+"_best_model_params.pt")))
+    a =np.array(torch.load(os.path.join(path+'\\data\\models',user_name+"_best_model_params.pt")))
     col.insert_one({'filename':user_name+'_model','user_name':user_name,'model_data':a.tobytes()})
     client.close()
     return 'success'
